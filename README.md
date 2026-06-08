@@ -3,7 +3,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/aiogrilla.svg)](https://pypi.org/project/aiogrilla/)
 [![Python versions](https://img.shields.io/pypi/pyversions/aiogrilla.svg)](https://pypi.org/project/aiogrilla/)
 [![CI](https://img.shields.io/github/actions/workflow/status/zwrose/aiogrilla/ci.yml?branch=main&label=CI&logo=github)](https://github.com/zwrose/aiogrilla/actions/workflows/ci.yml)
-[![License](https://img.shields.io/pypi/l/aiogrilla.svg)](https://github.com/zwrose/aiogrilla/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/zwrose/aiogrilla)](https://github.com/zwrose/aiogrilla/blob/main/LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 Unofficial async Python client for Grilla Grills Alpha Connect smokers.
