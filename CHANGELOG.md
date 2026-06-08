@@ -8,6 +8,13 @@ From the first release onward, this file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) — please do not edit
 released sections by hand.
 
+## [0.2.0](https://github.com/zwrose/aiogrilla/compare/v0.1.1...v0.2.0) (2026-06-08)
+
+
+### Features
+
+* initial release of aiogrilla ([48a2219](https://github.com/zwrose/aiogrilla/commit/48a2219735cc2d646cc02601fb673c42bd358af8))
+
 ## [Unreleased]
 
 - Initial public release.
