@@ -9,8 +9,18 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     steps:
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+      # release-please creates the release as github-actions[bot]; GitHub's anti-recursion rule
+      # means that release event will NOT trigger publish.yml. workflow_dispatch is exempt, so we
+      # dispatch the publish explicitly whenever a release was actually created.
+      - name: Trigger PyPI publish for the new release
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run publish.yml --ref main
