@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a problem with aiogrilla
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please remove any account identifiers or tokens
+        from logs and payload samples before posting.
+  - type: input
+    id: version
+    attributes:
+      label: aiogrilla version
+      placeholder: "0.1.1"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Grill model (if known)
+      placeholder: "Silverbac 2.0 XL"
+    validations:
+      required: false
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or payload sample (redacted)
+      description: Remove account identifiers and tokens first.
+      render: text
+    validations:
+      required: false

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+dist/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Local agent/review tooling state (Claude Code, review-crew) — never published
+.claude/

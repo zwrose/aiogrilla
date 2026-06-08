@@ -1,0 +1,6 @@
+{"model":"silverbacxl","mode":"running","error":"none","desired_temp":121,
+ "current_cook_temp":119,"current_probe_temp":68,"desired_probe_temp":90,
+ "current_probe2_temp":65535,"desired_probe2_temp":0,
+ "cook_timer":{"total_seconds":0,"remaining_seconds":0},
+ "fw_version":"1.0.70","settings":{"units_pref":"C","cook_mode":"pro",
+ "temp_alarm_range":{"low":0,"high":0,"on":false}}}
