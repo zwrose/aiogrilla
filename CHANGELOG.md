@@ -8,6 +8,13 @@ From the first release onward, this file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) — please do not edit
 released sections by hand.
 
+## [0.2.2](https://github.com/zwrose/aiogrilla/compare/v0.2.1...v0.2.2) (2026-06-10)
+
+
+### Dependencies
+
+* **deps:** Bump googleapis/release-please-action from 4.4.1 to 5.0.0 ([ed23cc4](https://github.com/zwrose/aiogrilla/commit/ed23cc406a353367a01125e8bc58555760b067d3))
+
 ## [0.2.1](https://github.com/zwrose/aiogrilla/compare/v0.2.0...v0.2.1) (2026-06-10)
 
 
