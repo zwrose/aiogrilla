@@ -3,7 +3,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/aiogrilla.svg)](https://pypi.org/project/aiogrilla/)
 [![Python versions](https://img.shields.io/pypi/pyversions/aiogrilla.svg)](https://pypi.org/project/aiogrilla/)
 [![CI](https://img.shields.io/github/actions/workflow/status/zwrose/aiogrilla/ci.yml?branch=main&label=CI&logo=github)](https://github.com/zwrose/aiogrilla/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/zwrose/aiogrilla)](https://github.com/zwrose/aiogrilla/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/zwrose/aiogrilla/blob/main/LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 Unofficial async Python client for Grilla Grills Alpha Connect smokers.
@@ -84,6 +84,20 @@ aiogrilla is intentionally read-only in its first release:
 
 Write operations (set temperature, start/stop cook, etc.) are out of scope for
 v1.
+
+## Tested hardware
+
+aiogrilla has so far been verified against a **single grill**:
+
+| Model | Controller | Firmware |
+| --- | --- | --- |
+| Grilla Silverbac 2.0 XL Built-In | Alpha Connect 2.0 | 1.0.70 |
+
+Other Alpha Connect grills share the same cloud API and **should** work, but are
+unverified. **If you have a different model, please try it and [open an issue](https://github.com/zwrose/aiogrilla/issues/new?template=compatibility_report.yml)
+with your findings** — model, firmware, and any fields that look off (a redacted
+state sample helps — see Caveats). Other owners' reports are how compatibility gets
+confirmed.
 
 ## Caveats
 
