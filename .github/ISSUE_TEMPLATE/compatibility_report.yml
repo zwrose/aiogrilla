@@ -1,0 +1,65 @@
+name: Compatibility report
+description: Share how aiogrilla works (or doesn't) with your Grilla grill — any model welcome
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help confirm which grills aiogrilla works with. Reports from owners of models
+        **other than** the Silverbac 2.0 XL Built-In are especially valuable. Please
+        remove any account identifiers or tokens from samples before posting.
+  - type: input
+    id: model
+    attributes:
+      label: Grill model
+      description: The product name, e.g. "Grilla Silverbac" or "Kong".
+      placeholder: "Grilla Silverbac"
+    validations:
+      required: true
+  - type: input
+    id: model_code
+    attributes:
+      label: Model code (if known)
+      description: The code the grill reports, e.g. "silverbacxl" (visible in a state sample).
+      placeholder: "silverbacxl"
+    validations:
+      required: false
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version (if known)
+      placeholder: "1.0.70"
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: aiogrilla version
+      placeholder: "0.2.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall result
+      options:
+        - "Works — telemetry looks correct"
+        - "Mostly works — some fields wrong or missing"
+        - "Doesn't work"
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What works / what doesn't
+      description: Which fields look correct (temperatures, status, mode, timer, probes) and which look wrong or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Redacted state sample (optional)
+      description: A grill_state payload with account identifiers and tokens removed.
+      render: text
+    validations:
+      required: false
