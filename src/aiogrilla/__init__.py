@@ -8,7 +8,7 @@ from .models import CookMode, Grill, GrillState, Mode, TemperatureUnit
 try:
     __version__ = version("aiogrilla")
 except PackageNotFoundError:  # pragma: no cover - running from a source tree without metadata
-    __version__ = "0.2.0"
+    __version__ = "0.2.1"
 
 __all__ = [
     "GrillaClient",
