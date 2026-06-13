@@ -16,6 +16,7 @@ class Mode(StrEnum):
     STANDBY = "standby"  # controller powered, idle (observed live when not cooking)
     IGNITING = "igniting"
     RUNNING = "running"
+    STABLE = "stable"  # holding steady at target temp (observed live mid-cook)
     HOLD = "hold"
     FEED = "feed"
     MANUAL = "manual"
