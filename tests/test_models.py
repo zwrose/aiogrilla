@@ -1,5 +1,6 @@
 # tests/test_models.py
 import json
+import logging
 import pathlib
 
 import pytest
@@ -30,6 +31,15 @@ def test_standby_mode_recognized_and_not_on():
     s = parse_grill_state({"mode": "standby", "current_cook_temp": 90})
     assert s.mode is Mode.STANDBY
     assert s.is_on is False  # idle, not cooking
+
+
+def test_stable_mode_recognized_and_on(caplog):
+    assert Mode.from_raw("stable") is Mode.STABLE
+    with caplog.at_level(logging.WARNING, logger="aiogrilla.models"):
+        s = parse_grill_state({"mode": "stable", "current_cook_temp": 225})
+    assert s.mode is Mode.STABLE
+    assert s.is_on is True  # holding at target temp == actively cooking
+    assert "unrecognized grill mode" not in caplog.text
 
 
 def test_cook_timer_minutes_to_seconds():
@@ -168,6 +178,7 @@ def _state_with_mode(mode: Mode) -> GrillState:
         # Every other mode is "on".
         (Mode.IGNITING, True),
         (Mode.RUNNING, True),
+        (Mode.STABLE, True),
         (Mode.HOLD, True),
         (Mode.FEED, True),
         (Mode.MANUAL, True),
