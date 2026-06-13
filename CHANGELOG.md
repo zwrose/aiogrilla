@@ -8,6 +8,13 @@ From the first release onward, this file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) — please do not edit
 released sections by hand.
 
+## [0.2.3](https://github.com/zwrose/aiogrilla/compare/v0.2.2...v0.2.3) (2026-06-13)
+
+
+### Bug Fixes
+
+* recognize 'stable' grill mode ([#15](https://github.com/zwrose/aiogrilla/issues/15)) ([219a263](https://github.com/zwrose/aiogrilla/commit/219a2634a17cf5eaa77be864c808fb22a4b47263))
+
 ## [0.2.2](https://github.com/zwrose/aiogrilla/compare/v0.2.1...v0.2.2) (2026-06-10)
 
 
