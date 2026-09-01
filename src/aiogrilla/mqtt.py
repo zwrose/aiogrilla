@@ -41,6 +41,11 @@ def _default_connection_factory(
         client_id=client_id,
         clean_session=True,
         keep_alive_secs=30,
+        # The vendor's IoT policy pins the client id, which we therefore share with the
+        # vendor app (one connection per id broker-side). Generous reconnect backoff
+        # keeps the mutual-kick contention bounded when both are online.
+        reconnect_min_timeout_secs=30,
+        reconnect_max_timeout_secs=300,
         on_connection_interrupted=on_interrupted,
         on_connection_resumed=on_resumed,
     )

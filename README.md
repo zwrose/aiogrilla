@@ -106,6 +106,14 @@ and firmware. Some fields (probe 2, turntable, alarm range) may not apply to all
 grill models or firmware versions. If you observe unexpected parsing behavior,
 please open an issue with a **redacted** (no credentials or tokens) sample.
 
+The vendor's AWS IoT policy (observed 2026-08) authorizes exactly one MQTT client
+id per account: the UUID portion of the Cognito identity id. aiogrilla uses that
+id, which is necessarily the same one the vendor's mobile app uses — AWS IoT
+allows only one live connection per client id, so aiogrilla and an open app can
+bump each other offline. aiogrilla reconnects with generous backoff to keep that
+contention bounded; expect brief availability flaps while the app is in
+active use. `GrillaClient(client_suffix=...)` is deprecated and ignored.
+
 ## Contributing
 
 Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). This project

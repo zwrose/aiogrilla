@@ -52,6 +52,7 @@ def patched(monkeypatch):
     )
     auth.identity_id = "us-east-2:xyz"
     auth.id_token = "ID"
+    auth.id_token_fresh = True
     monkeypatch.setattr("aiogrilla.client.GrillaAuth", lambda *a, **k: auth)
     monkeypatch.setattr(
         "aiogrilla.client.async_get_grills",
@@ -91,12 +92,14 @@ async def test_connect_subscribes_each_grill(patched):
     await c.async_disconnect()
 
 
-async def test_client_id_is_account_scoped_not_per_sn(patched):
+async def test_client_id_is_exact_identity_uuid(patched):
+    """The vendor IoT policy authorizes ONLY the UUID portion of the identity id as the
+    MQTT client id — no region prefix, no library prefix, and client_suffix is ignored."""
     c = GrillaClient(refresh_token="RE", client_suffix="abcd")
     await c.async_get_grills()
     await c.async_connect()
     cid = patched["streams"][0].client_id
-    assert "sx1" not in cid and "us-east-2:xyz" in cid and cid.endswith("abcd")
+    assert cid == "xyz"  # identity "us-east-2:xyz" -> uuid part only
     await c.async_disconnect()
 
 
@@ -336,11 +339,13 @@ async def test_persisted_refresh_token_calls_async_refresh(patched):
     auth = patched["auth"]
     # Start with no id_token (persisted-refresh-token scenario).
     auth.id_token = None
+    auth.id_token_fresh = False
     auth.identity_id = None
 
     # Simulate async_refresh setting id_token and async_iam_credentials setting identity_id.
     async def _fake_refresh() -> None:
         auth.id_token = "ID"
+        auth.id_token_fresh = True
 
     async def _fake_iam() -> Credentials:
         auth.identity_id = "us-east-2:xyz"
@@ -532,9 +537,11 @@ async def test_session_ownership_disconnect(patched):
         await supplied.close()
 
 
-async def test_reconnect_connects_new_before_disconnecting_old(patched):
-    """Make-before-break: the NEW stream must finish connecting BEFORE the old stream is
-    disconnected, so telemetry never gaps. Asserts ORDER, not just call counts."""
+async def test_reconnect_disconnects_old_before_connecting_new(patched):
+    """Break-before-make: old and new streams share the one policy-allowed client id, so
+    the OLD stream must be fully disconnected BEFORE the new one connects (connecting
+    first would trigger a broker duplicate-id kick and an auto-reconnect war with
+    ourselves). Asserts ORDER, not just call counts."""
     events: list[str] = []
 
     def make_ordered_stream(loop, client_id):
@@ -559,10 +566,38 @@ async def test_reconnect_connects_new_before_disconnecting_old(patched):
         c = GrillaClient(refresh_token="RE")
         await c.async_get_grills()
         await c.async_connect()  # stream 0 connects
-        await c._async_reconnect()  # stream 1 connects, THEN stream 0 disconnects
-        # New (1) connected before old (0) disconnected — the make-before-break invariant.
-        assert events == ["connect:0", "connect:1", "disconnect:0"]
+        await c._async_reconnect()  # stream 0 disconnects, THEN stream 1 connects
+        # Old (0) disconnected before new (1) connected — the break-before-make invariant.
+        assert events == ["connect:0", "disconnect:0", "connect:1"]
         await c.async_disconnect()
+
+
+async def test_connect_refreshes_stale_id_token(patched):
+    """async_connect must re-refresh a stale id_token before exchanging it for IAM
+    credentials — the connect-retry loop routinely outlives the ~1h token, and a stale
+    token used to surface as a bogus auth failure (forcing pointless reauth)."""
+    auth = patched["auth"]
+    c = GrillaClient(refresh_token="RE")
+    await c.async_get_grills()
+    auth.async_refresh.reset_mock()
+
+    auth.id_token_fresh = False  # token went stale while connect was being retried
+    await c.async_connect()
+
+    auth.async_refresh.assert_awaited_once()
+    await c.async_disconnect()
+
+
+async def test_connect_skips_refresh_when_token_fresh(patched):
+    auth = patched["auth"]
+    c = GrillaClient(refresh_token="RE")
+    await c.async_get_grills()
+    auth.async_refresh.reset_mock()
+
+    await c.async_connect()  # id_token_fresh is True in the fixture
+
+    auth.async_refresh.assert_not_called()
+    await c.async_disconnect()
 
 
 async def test_account_sub_delegates_to_auth(patched):
@@ -611,6 +646,7 @@ async def test_async_reconnect_real_stream_uses_fresh_creds(monkeypatch):
     auth.async_iam_credentials = AsyncMock(side_effect=[initial, refreshed])
     auth.identity_id = "us-east-2:xyz"
     auth.id_token = "ID"
+    auth.id_token_fresh = True
     monkeypatch.setattr("aiogrilla.client.GrillaAuth", lambda *a, **k: auth)
     monkeypatch.setattr(
         "aiogrilla.client.async_get_grills",

@@ -59,6 +59,9 @@ class GrillaClient:
         session: aiohttp.ClientSession | None = None,
     ) -> None:
         self._auth = GrillaAuth(refresh_token=refresh_token)
+        # DEPRECATED and ignored: the Grilla cloud's IoT policy (observed 2026-08) only
+        # authorizes connections whose MQTT client id is EXACTLY the UUID portion of the
+        # Cognito identity id — no prefixes or suffixes. Accepted for API compatibility.
         self._client_suffix = client_suffix
 
         # aiohttp session — if we created it we own it and will close it.
@@ -105,7 +108,7 @@ class GrillaClient:
 
     async def async_get_grills(self) -> list[Grill]:
         """Ensure valid tokens and return the list of grills for this account."""
-        if self._auth.id_token is None:
+        if not self._auth.id_token_fresh:
             await self._auth.async_refresh()
         if self._auth.identity_id is None:
             await self._auth.async_iam_credentials()
@@ -152,6 +155,11 @@ class GrillaClient:
             raise GrillaError(
                 "no grills discovered; call async_get_grills() before async_connect()"
             )
+        # Re-refresh a stale id_token first: connect retry loops routinely outlive the
+        # ~1h token, and exchanging an expired token for IAM creds would otherwise fail
+        # as a (bogus) auth rejection.
+        if not self._auth.id_token_fresh:
+            await self._auth.async_refresh()
         creds = await self._auth.async_iam_credentials()
         _loop = loop or asyncio.get_running_loop()
 
@@ -201,7 +209,14 @@ class GrillaClient:
 
     def _build_stream(self, loop: asyncio.AbstractEventLoop) -> IotStream:
         """Create a fresh IotStream and register all stored callbacks on it."""
-        client_id = f"aiogrilla-{self._auth.identity_id}-{self._client_suffix}"
+        # The Grilla cloud's IoT policy only authorizes client id == the UUID portion of
+        # the Cognito identity id (no region prefix, no decorations) — verified 2026-08
+        # by probing variants; everything else is closed with UNEXPECTED_HANGUP. This id
+        # is shared with the vendor app, so concurrent use can bump the other party
+        # (AWS IoT allows one connection per client id); reconnect backoff in mqtt.py
+        # keeps that contention bounded.
+        identity = self._auth.identity_id or ""
+        client_id = identity.split(":", 1)[-1]
         stream = IotStream(loop, client_id)
         for grill in self._grills:
             state_cb = self._state_cbs.get(grill.id, _noop_state)
@@ -210,8 +225,14 @@ class GrillaClient:
         return stream
 
     async def _async_reconnect(self) -> Credentials:
-        """Build a BRAND-NEW IotStream (never reuse a closed one), connect it, then
-        disconnect the old stream (make-before-break where possible).
+        """Disconnect the old IotStream, then build and connect a BRAND-NEW one
+        (break-before-make; never reuse a closed stream).
+
+        Break-before-make is forced by the vendor's IoT policy: old and new streams
+        share ONE allowed client id, so connecting the new stream first would make the
+        broker kick the old one, whose auto-reconnect would then kick the new one — a
+        connection war with ourselves. The brief telemetry gap is covered by the
+        staleness watchdog and re-subscribe on the new stream.
 
         Returns the fresh Credentials so callers can track the new expiration.
         This is the reconnect entry point used by both the refresh loop and tests.
@@ -222,24 +243,23 @@ class GrillaClient:
         await self._auth.async_refresh()
         new_creds: Credentials = await self._auth.async_iam_credentials()
 
-        # Build and connect the new stream BEFORE touching the old one (make-before-break).
+        # Take the old stream down first (see docstring); on any later failure
+        # self._stream is None so the refresh loop's retry path reconnects cleanly.
+        old_stream = self._stream
+        self._stream = None
+        if old_stream is not None:
+            await old_stream.async_disconnect()
+
         new_stream = self._build_stream(loop)
         try:
             await new_stream.async_connect(new_creds)
         except Exception:
-            # Connect (or its in-flight subscribe) failed before the swap; don't leak
-            # the half-open connection. Old stream stays in place for the caller to retry.
+            # Connect (or its in-flight subscribe) failed; don't leak the half-open
+            # connection. Caller (the refresh loop) backs off and retries.
             with contextlib.suppress(Exception):
                 await new_stream.async_disconnect()
             raise
-
-        # Swap streams atomically from the perspective of the event loop.
-        old_stream = self._stream
         self._stream = new_stream
-
-        # Disconnect the old stream after the new one is up.
-        if old_stream is not None:
-            await old_stream.async_disconnect()
 
         return new_creds
 
