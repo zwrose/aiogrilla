@@ -5,7 +5,9 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "deps"
+      # "ci" is a hidden, non-releasing type in release-please-config.json: workflow
+      # bumps must not mint releases. Runtime deps (pip) keep "deps" and do release.
+      prefix: "ci"
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
