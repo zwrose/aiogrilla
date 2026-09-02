@@ -8,6 +8,13 @@ From the first release onward, this file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) — please do not edit
 released sections by hand.
 
+## [0.2.5](https://github.com/zwrose/aiogrilla/compare/v0.2.4...v0.2.5) (2026-09-02)
+
+
+### Dependencies
+
+* Bump actions/checkout from 6.0.3 to 7.0.1 ([#20](https://github.com/zwrose/aiogrilla/issues/20)) ([8b6b71a](https://github.com/zwrose/aiogrilla/commit/8b6b71aec897e134212468e1eff31a2b83654e6e))
+
 ## [0.2.4](https://github.com/zwrose/aiogrilla/compare/v0.2.3...v0.2.4) (2026-09-02)
 
 
