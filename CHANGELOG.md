@@ -8,6 +8,18 @@ From the first release onward, this file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) — please do not edit
 released sections by hand.
 
+## [0.2.4](https://github.com/zwrose/aiogrilla/compare/v0.2.3...v0.2.4) (2026-09-02)
+
+
+### Bug Fixes
+
+* adapt to vendor IoT policy pinning MQTT client id to the identity UUID ([#23](https://github.com/zwrose/aiogrilla/issues/23)) ([dffc23e](https://github.com/zwrose/aiogrilla/commit/dffc23ef2d99c5f33365632f06cde910e128549b))
+
+
+### Dependencies
+
+* Bump astral-sh/setup-uv from 8.2.0 to 10.0.1 ([#22](https://github.com/zwrose/aiogrilla/issues/22)) ([9198f44](https://github.com/zwrose/aiogrilla/commit/9198f441c09ab0ad04015017168027810ae2c1a0))
+
 ## [0.2.3](https://github.com/zwrose/aiogrilla/compare/v0.2.2...v0.2.3) (2026-06-13)
 
 
