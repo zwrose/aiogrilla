@@ -8,6 +8,13 @@ From the first release onward, this file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) — please do not edit
 released sections by hand.
 
+## [0.2.5](https://github.com/zwrose/aiogrilla/compare/v0.2.4...v0.2.5) (2026-09-02)
+
+
+### Documentation
+
+* describe how publish.yml is actually triggered after a release ([#25](https://github.com/zwrose/aiogrilla/issues/25)) ([8760fd0](https://github.com/zwrose/aiogrilla/commit/8760fd0ab994180a9948bd45501611808e30c864))
+
 ## [0.2.4](https://github.com/zwrose/aiogrilla/compare/v0.2.3...v0.2.4) (2026-09-02)
 
 

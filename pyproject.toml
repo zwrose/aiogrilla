@@ -1,6 +1,6 @@
 [project]
 name = "aiogrilla"
-version = "0.2.4"
+version = "0.2.5"
 description = "Async client for Grilla Grills Alpha Connect smokers (unofficial)"
 readme = "README.md"
 requires-python = ">=3.12"
