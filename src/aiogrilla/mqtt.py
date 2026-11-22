@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -12,6 +14,7 @@ from awsiot import mqtt_connection_builder  # type: ignore[import-untyped]
 
 from . import const
 from .auth import Credentials
+from .exceptions import GrillaConnectionError
 from .models import GrillState, parse_grill_state
 
 _LOGGER = logging.getLogger(__name__)
@@ -148,12 +151,24 @@ class IotStream:
         client_id: str,
         *,
         connection_factory: ConnectionFactory = _default_connection_factory,
+        heartbeat_interval: float | None = None,
     ) -> None:
         self._loop = loop
         self._client_id = client_id
         self._connection_factory = connection_factory
         self._conn: mqtt.Connection | None = None
         self._dispatchers: dict[str, StateDispatcher] = {}
+        # True only while connected AND subscribed (cleared on interruption, set again
+        # once the post-resume re-subscribe succeeds). Gates publishing.
+        self._online = False
+        # Seconds between client heartbeats (None disables them).
+        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_task: asyncio.Task[None] | None = None
+
+    @property
+    def online(self) -> bool:
+        """Whether the connection is up and subscribed (so publishing can succeed)."""
+        return self._online
 
     def add_grill(
         self,
@@ -183,6 +198,41 @@ class IotStream:
         )
         await asyncio.wrap_future(self._conn.connect())
         await self._subscribe_all()
+        self._online = True
+        if self._heartbeat_interval and self._heartbeat_task is None:
+            self._heartbeat_task = self._loop.create_task(
+                self._heartbeat_loop(self._heartbeat_interval)
+            )
+
+    async def async_publish(self, topic: str, payload: dict[str, Any]) -> None:
+        """Publish a JSON payload (QoS 1). Raises GrillaConnectionError when offline or
+        when the broker does not acknowledge the publish."""
+        if self._conn is None or not self._online:
+            raise GrillaConnectionError(f"cannot publish to {topic}: not connected")
+        future, _ = self._conn.publish(
+            topic=topic,
+            payload=json.dumps(payload, separators=(",", ":")),
+            qos=mqtt.QoS.AT_LEAST_ONCE,
+        )
+        try:
+            await asyncio.wrap_future(future)
+        except Exception as err:
+            raise GrillaConnectionError(f"publish to {topic} failed") from err
+
+    async def _heartbeat_loop(self, interval: float) -> None:
+        """Tell each grill a client is watching, like the vendor app does while open."""
+        while True:
+            if self._online:
+                await self._send_heartbeats()
+            await asyncio.sleep(interval)
+
+    async def _send_heartbeats(self) -> None:
+        payload = {"timestamp": int(time.time() * 1000)}
+        for grill_id in list(self._dispatchers):
+            try:
+                await self.async_publish(const.TOPIC_HEARTBEAT.format(device_id=grill_id), payload)
+            except GrillaConnectionError:
+                _LOGGER.debug("heartbeat for %s not delivered", grill_id, exc_info=True)
 
     async def _subscribe_all(self) -> None:
         assert self._conn is not None
@@ -197,6 +247,7 @@ class IotStream:
             disp.set_available(True)
 
     def _on_interrupted(self, connection: Any, error: Any, **kw: Any) -> None:  # native thread
+        self._online = False
         for d in list(self._dispatchers.values()):
             try:
                 self._loop.call_soon_threadsafe(d.set_available, False)
@@ -219,6 +270,7 @@ class IotStream:
     async def _resubscribe(self) -> None:
         try:
             await self._subscribe_all()
+            self._online = True
         except Exception:
             _LOGGER.warning("re-subscribe failed; staying unavailable", exc_info=True)
 
@@ -235,6 +287,12 @@ class IotStream:
             disp.set_callbacks(on_state=on_state, on_availability=on_availability)
 
     async def async_disconnect(self) -> None:
+        self._online = False
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._heartbeat_task
+            self._heartbeat_task = None
         for d in self._dispatchers.values():
             d.close()
         if self._conn is not None:

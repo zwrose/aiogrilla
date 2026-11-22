@@ -5,10 +5,15 @@ using an owned connection-factory seam so no live awscrt connection is required.
 import asyncio
 import datetime as dt
 import json
+import time
 from concurrent.futures import Future
+
+import pytest
+from awscrt import mqtt
 
 from aiogrilla import const
 from aiogrilla.auth import Credentials
+from aiogrilla.exceptions import GrillaConnectionError
 from aiogrilla.models import GrillState
 from aiogrilla.mqtt import IotStream
 
@@ -35,7 +40,9 @@ class FakeConnection:
         self.callbacks: dict[str, object] = {}
         self.connect_called = False
         self.disconnect_called = False
+        self.published: list[tuple[str, str, object]] = []
         self._subscribe_future_factory = subscribe_future_factory or (lambda: _resolved())
+        self.publish_future_factory = lambda: _resolved()
 
     def connect(self):
         self.connect_called = True
@@ -45,6 +52,10 @@ class FakeConnection:
         self.subscribed.append(topic)
         self.callbacks[topic] = callback
         return self._subscribe_future_factory(), None
+
+    def publish(self, *, topic, payload, qos):
+        self.published.append((topic, payload, qos))
+        return self.publish_future_factory(), 1
 
     def disconnect(self):
         self.disconnect_called = True
@@ -67,11 +78,11 @@ class FakeFactory:
         return self.conn
 
 
-def _make_stream(conn=None):
+def _make_stream(conn=None, **kwargs):
     conn = conn or FakeConnection()
     factory = FakeFactory(conn)
     loop = asyncio.get_running_loop()
-    stream = IotStream(loop, "client-1", connection_factory=factory)
+    stream = IotStream(loop, "client-1", connection_factory=factory, **kwargs)
     return stream, factory, conn
 
 
@@ -197,3 +208,113 @@ async def test_resubscribe_failure_is_logged_not_raised():
     # The real subscribe error was swallowed: availability was NOT re-marked True
     # (no new True appended). If _resubscribe stops swallowing, this raises instead.
     assert avail == [True]
+
+
+async def test_publish_sends_compact_json_at_least_once():
+    stream, factory, conn = _make_stream()
+    stream.add_grill("sx1", on_state=lambda s: None, on_availability=lambda a: None)
+    await stream.async_connect(CREDS)
+    assert stream.online
+
+    await stream.async_publish("topic/client/sx1/command", {"cmd": "x", "data": 5})
+
+    assert conn.published == [
+        ("topic/client/sx1/command", '{"cmd":"x","data":5}', mqtt.QoS.AT_LEAST_ONCE)
+    ]
+
+
+async def test_publish_before_connect_raises_connection_error():
+    stream, factory, conn = _make_stream()
+    with pytest.raises(GrillaConnectionError):
+        await stream.async_publish("t", {})
+    assert conn.published == []
+
+
+async def test_publish_while_interrupted_raises_then_works_after_resume():
+    stream, factory, conn = _make_stream()
+    stream.add_grill("sx1", on_state=lambda s: None, on_availability=lambda a: None)
+    await stream.async_connect(CREDS)
+
+    factory.on_interrupted(connection=conn, error="boom")
+    assert not stream.online
+    with pytest.raises(GrillaConnectionError):
+        await stream.async_publish("t", {})
+
+    factory.on_resumed(connection=conn, return_code=0, session_present=False)
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert stream.online
+    await stream.async_publish("t", {})
+    assert [p[0] for p in conn.published] == ["t"]
+
+
+async def test_publish_unacknowledged_raises_connection_error():
+    stream, factory, conn = _make_stream()
+    await stream.async_connect(CREDS)
+    conn.publish_future_factory = lambda: _failed(RuntimeError("nack"))
+    with pytest.raises(GrillaConnectionError):
+        await stream.async_publish("t", {})
+
+
+async def test_no_heartbeat_by_default():
+    stream, factory, conn = _make_stream()
+    stream.add_grill("sx1", on_state=lambda s: None, on_availability=lambda a: None)
+    await stream.async_connect(CREDS)
+    await asyncio.sleep(0.02)
+    assert conn.published == []
+    await stream.async_disconnect()
+
+
+async def test_heartbeat_published_for_each_grill_until_disconnect():
+    stream, factory, conn = _make_stream(heartbeat_interval=0.01)
+    stream.add_grill("sx1", on_state=lambda s: None, on_availability=lambda a: None)
+    stream.add_grill("sx2", on_state=lambda s: None, on_availability=lambda a: None)
+    before = int(time.time() * 1000)
+    await stream.async_connect(CREDS)
+    await asyncio.sleep(0.035)
+    await stream.async_disconnect()
+    after = int(time.time() * 1000)
+
+    topics = [p[0] for p in conn.published]
+    assert topics[:2] == [
+        const.TOPIC_HEARTBEAT.format(device_id="sx1"),
+        const.TOPIC_HEARTBEAT.format(device_id="sx2"),
+    ]
+    assert len(topics) >= 4  # the first beat is immediate, then one per interval
+    for _topic, payload, qos in conn.published:
+        assert qos == mqtt.QoS.AT_LEAST_ONCE
+        body = json.loads(payload)
+        assert set(body) == {"timestamp"}
+        assert before <= body["timestamp"] <= after
+
+    # Cancelled on disconnect: nothing more is published afterwards.
+    count = len(conn.published)
+    await asyncio.sleep(0.03)
+    assert len(conn.published) == count
+
+
+async def test_heartbeat_paused_while_interrupted():
+    stream, factory, conn = _make_stream(heartbeat_interval=0.01)
+    stream.add_grill("sx1", on_state=lambda s: None, on_availability=lambda a: None)
+    await stream.async_connect(CREDS)
+    await asyncio.sleep(0)
+
+    factory.on_interrupted(connection=conn, error="boom")
+    count = len(conn.published)
+    await asyncio.sleep(0.035)
+    assert len(conn.published) == count  # no beats while the link is down
+
+    factory.on_resumed(connection=conn, return_code=0, session_present=False)
+    await asyncio.sleep(0.035)
+    assert len(conn.published) > count  # beats resume once re-subscribed
+    await stream.async_disconnect()
+
+
+async def test_heartbeat_publish_failure_is_swallowed():
+    stream, factory, conn = _make_stream(heartbeat_interval=0.01)
+    stream.add_grill("sx1", on_state=lambda s: None, on_availability=lambda a: None)
+    conn.publish_future_factory = lambda: _failed(RuntimeError("nack"))
+    await stream.async_connect(CREDS)
+    await asyncio.sleep(0.03)
+    assert len(conn.published) >= 2  # kept trying; the loop did not die
+    await stream.async_disconnect()
