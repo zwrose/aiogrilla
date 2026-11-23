@@ -214,19 +214,19 @@ async def test_publish_sends_compact_json_at_least_once():
     stream, factory, conn = _make_stream()
     stream.add_grill("sx1", on_state=lambda s: None, on_availability=lambda a: None)
     await stream.async_connect(CREDS)
-    assert stream.online
+    assert stream._online
 
-    await stream.async_publish("topic/client/sx1/command", {"cmd": "x", "data": 5})
+    await stream._async_publish("topic/client/sx1/heartbeat", {"timestamp": 5})
 
     assert conn.published == [
-        ("topic/client/sx1/command", '{"cmd":"x","data":5}', mqtt.QoS.AT_LEAST_ONCE)
+        ("topic/client/sx1/heartbeat", '{"timestamp":5}', mqtt.QoS.AT_LEAST_ONCE)
     ]
 
 
 async def test_publish_before_connect_raises_connection_error():
     stream, factory, conn = _make_stream()
     with pytest.raises(GrillaConnectionError):
-        await stream.async_publish("t", {})
+        await stream._async_publish("t", {})
     assert conn.published == []
 
 
@@ -236,15 +236,15 @@ async def test_publish_while_interrupted_raises_then_works_after_resume():
     await stream.async_connect(CREDS)
 
     factory.on_interrupted(connection=conn, error="boom")
-    assert not stream.online
+    assert not stream._online
     with pytest.raises(GrillaConnectionError):
-        await stream.async_publish("t", {})
+        await stream._async_publish("t", {})
 
     factory.on_resumed(connection=conn, return_code=0, session_present=False)
     for _ in range(5):
         await asyncio.sleep(0)
-    assert stream.online
-    await stream.async_publish("t", {})
+    assert stream._online
+    await stream._async_publish("t", {})
     assert [p[0] for p in conn.published] == ["t"]
 
 
@@ -253,7 +253,7 @@ async def test_publish_unacknowledged_raises_connection_error():
     await stream.async_connect(CREDS)
     conn.publish_future_factory = lambda: _failed(RuntimeError("nack"))
     with pytest.raises(GrillaConnectionError):
-        await stream.async_publish("t", {})
+        await stream._async_publish("t", {})
 
 
 async def test_no_heartbeat_by_default():

@@ -165,11 +165,6 @@ class IotStream:
         self._heartbeat_interval = heartbeat_interval
         self._heartbeat_task: asyncio.Task[None] | None = None
 
-    @property
-    def online(self) -> bool:
-        """Whether the connection is up and subscribed (so publishing can succeed)."""
-        return self._online
-
     def add_grill(
         self,
         grill_id: str,
@@ -204,7 +199,7 @@ class IotStream:
                 self._heartbeat_loop(self._heartbeat_interval)
             )
 
-    async def async_publish(self, topic: str, payload: dict[str, Any]) -> None:
+    async def _async_publish(self, topic: str, payload: dict[str, Any]) -> None:
         """Publish a JSON payload (QoS 1). Raises GrillaConnectionError when offline or
         when the broker does not acknowledge the publish."""
         if self._conn is None or not self._online:
@@ -230,7 +225,7 @@ class IotStream:
         payload = {"timestamp": int(time.time() * 1000)}
         for grill_id in list(self._dispatchers):
             try:
-                await self.async_publish(const.TOPIC_HEARTBEAT.format(device_id=grill_id), payload)
+                await self._async_publish(const.TOPIC_HEARTBEAT.format(device_id=grill_id), payload)
             except GrillaConnectionError:
                 _LOGGER.debug("heartbeat for %s not delivered", grill_id, exc_info=True)
 
