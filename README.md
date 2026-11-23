@@ -81,6 +81,9 @@ aiogrilla is intentionally read-only in its first release:
 - Cook status / operating mode (off, igniting, running, hold, shutdown, etc.)
 - Cook timer (total and remaining seconds)
 - Grill availability (connected / disconnected)
+- Optional client heartbeat: `GrillaClient(..., heartbeat=True)` publishes
+  `{"timestamp": <epoch ms>}` to `topic/client/<grill id>/heartbeat` every 15 s
+  while connected, as the vendor app does while it is open
 
 Write operations (set temperature, start/stop cook, etc.) are out of scope for
 v1.

@@ -60,9 +60,10 @@ def patched(monkeypatch):
     )
     streams = []
 
-    def make_stream(loop, client_id):
+    def make_stream(loop, client_id, **kwargs):
         s = MagicMock()
         s.client_id = client_id
+        s.kwargs = kwargs
         s.async_connect = AsyncMock()
         s.async_disconnect = AsyncMock()
         s.add_grill = MagicMock()
@@ -473,7 +474,7 @@ async def test_connect_failure_leaves_stream_none_and_disconnects_half_open(patc
     await c.async_get_grills()
 
     # First connect: the stream's async_connect raises.
-    def make_failing_stream(loop, client_id):
+    def make_failing_stream(loop, client_id, **_kw):
         s = MagicMock()
         s.client_id = client_id
         s.async_connect = AsyncMock(side_effect=RuntimeError("connect boom"))
@@ -544,7 +545,7 @@ async def test_reconnect_disconnects_old_before_connecting_new(patched):
     ourselves). Asserts ORDER, not just call counts."""
     events: list[str] = []
 
-    def make_ordered_stream(loop, client_id):
+    def make_ordered_stream(loop, client_id, **_kw):
         idx = len(patched["streams"])  # 0 = first/old, 1 = second/new
 
         async def _connect(*_a, _i=idx, **_k):
@@ -636,8 +637,8 @@ async def test_async_reconnect_real_stream_uses_fresh_creds(monkeypatch):
         creds_seen.append(creds)
         return _FakeConn()
 
-    def real_stream_factory(loop, client_id):
-        return RealIotStream(loop, client_id, connection_factory=fake_factory)
+    def real_stream_factory(loop, client_id, **kw):
+        return RealIotStream(loop, client_id, connection_factory=fake_factory, **kw)
 
     auth = MagicMock()
     auth.async_refresh = AsyncMock()
@@ -662,4 +663,20 @@ async def test_async_reconnect_real_stream_uses_fresh_creds(monkeypatch):
     auth.async_refresh.assert_awaited()  # the real reconnect path refreshed tokens
     assert creds_seen[0] is initial  # first connection used the initial creds
     assert creds_seen[-1] is refreshed  # the NEW connection used the FRESH creds
+    await c.async_disconnect()
+
+
+async def test_heartbeat_is_opt_in(patched):
+    from aiogrilla import const
+
+    c = GrillaClient(refresh_token="RE")
+    await c.async_get_grills()
+    await c.async_connect()
+    assert patched["streams"][-1].kwargs == {"heartbeat_interval": None}
+    await c.async_disconnect()
+
+    c = GrillaClient(refresh_token="RE", heartbeat=True)
+    await c.async_get_grills()
+    await c.async_connect()
+    assert patched["streams"][-1].kwargs == {"heartbeat_interval": const.HEARTBEAT_INTERVAL_SECONDS}
     await c.async_disconnect()

@@ -14,6 +14,9 @@ IOT_ENDPOINT = "a2j9sbhiey57ml-ats.iot.us-east-2.amazonaws.com"
 API_GRILLS_BY_OWNER = "https://v3v2ce8vjg.execute-api.us-east-2.amazonaws.com/default"
 
 TOPIC_GRILL_STATE = "grilla/{device_id}/grill_state"  # the only authorized subscribe topic
+# The vendor app's client heartbeat topic (its IoT policy authorizes publishing here).
+TOPIC_HEARTBEAT = "topic/client/{device_id}/heartbeat"
+HEARTBEAT_INTERVAL_SECONDS = 15.0  # the app's DEVICE_HB_INTERVAL (15000 ms)
 
 PROBE_UNPLUGGED = 65535  # observed sentinel (probe2); ASSUMED for probe1
 TEMP_MAX_PLAUSIBLE_F = 1000  # out-of-range guard -> treat as unplugged/None

@@ -57,12 +57,15 @@ class GrillaClient:
         *,
         client_suffix: str = "0",
         session: aiohttp.ClientSession | None = None,
+        heartbeat: bool = False,
     ) -> None:
         self._auth = GrillaAuth(refresh_token=refresh_token)
         # DEPRECATED and ignored: the Grilla cloud's IoT policy (observed 2026-08) only
         # authorizes connections whose MQTT client id is EXACTLY the UUID portion of the
         # Cognito identity id — no prefixes or suffixes. Accepted for API compatibility.
         self._client_suffix = client_suffix
+        # Opt-in: publish the vendor app's client heartbeat to each grill while connected.
+        self._heartbeat = heartbeat
 
         # aiohttp session — if we created it we own it and will close it.
         # A caller-supplied session is used as-is and never closed by us.
@@ -217,7 +220,11 @@ class GrillaClient:
         # keeps that contention bounded.
         identity = self._auth.identity_id or ""
         client_id = identity.split(":", 1)[-1]
-        stream = IotStream(loop, client_id)
+        stream = IotStream(
+            loop,
+            client_id,
+            heartbeat_interval=const.HEARTBEAT_INTERVAL_SECONDS if self._heartbeat else None,
+        )
         for grill in self._grills:
             state_cb = self._state_cbs.get(grill.id, _noop_state)
             avail_cb = self._avail_cbs.get(grill.id, _noop_avail)
