@@ -4,6 +4,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Weekly, so an upstream change that breaks the checks (a new awsiotsdk, boto3 or aiohttp release)
+  # shows up within days even when nobody is pushing.
+  schedule:
+    - cron: "17 9 * * 1"
 permissions: {}
 jobs:
   test:
